@@ -1,0 +1,224 @@
+#################################### QUOTE BOT WHICH SHARES QUOTES ON SOCIAL MEDIA ####################################
+############################################## Requirements (versions) ################################################
+# Python (3)
+# Selenium (3.13.0)
+# BeautifulSoup4 (4.6.0)
+# Requests (2.18.4)
+# Firefox (61.0.2) 
+################################################### FUNCTIONALITY #####################################################
+# Scrapes 5 different category quotes from the home page of BrainyQuotes.com
+# Prints them on the terminal screen
+# Requests whether user would like to share any of the quotes on Facebook or Twitter.
+# If yes: requests input which cateogry of quote to share and on which platform.
+# Requests login credentials (which are not saved anywhere, stored in a local function memory.)
+
+### Browser Automation Process: 
+# (1) Opens browser (Firefox) with identified webpage > (2) Enters login details and logs in
+# (3) Types post > (4) Posts/Tweets > (5) Closes Browser > (6) Prints Summary (success message, date and time, quote.)
+
+
+import datetime, sys, time
+import bs4 as bs4
+import requests
+
+# web automation library
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import selenium.webdriver.firefox.firefox_profile
+
+url = 'https://www.brainyquote.com/quote_of_the_day'
+res = requests.get(url)
+res.raise_for_status()
+
+soup = bs4.BeautifulSoup(res.text, "lxml")
+
+quote_dictionary = {}
+
+################ Collecting Quotes #######################
+
+def collectQuotes(soup):
+	# Finds quotes, related category and authors from the soup
+	# adds them to local lists
+	# all items in the lists are added to the quote_dictionary where categories are keys, quotes and authors values.
+    categories = []
+    quotes = []
+    authors = []
+    # finds categories of quotes and adds to list
+    for category in soup.select('.qotd-h2'):
+        # replaces 'Quote' found value with 'Daily' for easier use.
+        if category.string.split()[0] == 'Quote':
+            categories.append('Daily')
+        # else adds just normal value found.
+        else:
+            categories.append(category.string.split()[0])
+
+    # finds quotes and adds to a list
+    for quote in soup.select('.oncl_q'):
+        quotes.append(quote.string)
+
+    # gets authors from the quote
+    for author in soup.select('.oncl_a'):
+        authors.append(author.string)
+
+    # adds items in the list to the dictionary while using categories as keys.
+    for category, quote, author in zip(categories, quotes[1:], authors):
+        quote_dictionary[category] = quote + ' - ' + author
+
+def printQuotes(quote_dictionary):
+	# prints the quote_dictionary to the screen.
+    print('-'*50)
+    print('Your Daily Remedy of Quotes')
+    print('-'*50)
+    for k,v in quote_dictionary.items():
+        print(k,':',v)
+        
+
+collectQuotes(soup)
+printQuotes(quote_dictionary)
+
+################ SELECTING QUOTE TO SHARE #######################
+
+# creating an empty list where to store the quote that user has chosen to share on social media.
+quoteToShare = []
+
+def userFavourite(quote_dictionary):
+	# Allows user to select the quote to share on social media, by entering the category of the quote. 
+    while True:
+        userQuote = str(input('Type quote category for the quote to be shared: ').capitalize())
+        if userQuote in quote_dictionary.keys():
+            print('\n Your selected quote:\n')
+            print(str(quote_dictionary[userQuote]),'\n')
+            quoteToShare.append(quote_dictionary[userQuote])
+            break
+        elif userQuote != str:
+            print("That was not letters. Please enter quote category: ")
+
+
+################################# SHARING ON SOCIAL MEDIA ##############################
+
+def sharingOnFacebook(sharingPlatform,quoteToShare):
+
+	# requests user input for login credentials. (Note: On personal computer input fields can be replaced with the user's credentials (Not recommended!))
+	email = input('Enter your email address: ') 
+	password = input('Enter your password: ') 
+
+	# create a new firefoxProfile 
+	profile = webdriver.FirefoxProfile()
+	# overides the FirefoxProfile configuration settings to prevent pop-up windows
+	profile.set_preference('dom.push.enabled',False)
+	profile.set_preference('dom.webnotifications.enabled',False)
+
+	print('Opening Facebook webpage...')
+	browser = webdriver.Firefox(executable_path='geckodriver',firefox_profile=profile)
+	browser.get('http://facebook.com')
+
+	# enters credentials
+	print('Entering login credentials...')
+	browser.find_element_by_xpath("//input[@name='email']").send_keys(email)
+	browser.find_element_by_xpath("//input[@name='pass']").send_keys(password)
+
+	#logins to platform
+	print('Logging in...')
+	browser.find_element_by_xpath("//input[@type='submit']").click()
+	print('Logged in successfully...')
+	browser.implicitly_wait(20)
+	
+	#posts selected quote
+	browser.find_element_by_name('xhpc_message').send_keys(quoteToShare[0])
+	print('Quote typed...')
+	
+	# implicitly waits (if the internet is slow.)
+	browser.implicitly_wait(10)
+
+	#click submit button and post the quote
+	print('submitting a quote post....')
+	postButton = browser.find_element_by_css_selector('._1mf7._4r1q._4jy0._4jy3._4jy1._51sy.selected._42ft')
+	browser.implicitly_wait(5)
+	postButton.click()
+
+	# waits for 4 seconds before closing the browser. 
+	time.sleep(4)
+	browser.quit()
+
+	# prints the message. 
+	print('-'*20)
+	print('Post Published Successfully!')
+	print('Date: ', datetime.datetime.now())
+	print('-'*20)
+	print('Your post: ', quoteToShare, '|', 'Length:', len(str(quoteToShare)))
+	
+
+def sharingOnTwitter(sharingPlatform, quoteToShare):
+
+	# requests user input for login credentials. (Note: On personal computer input fields can be replaced with the user's credentials (Not recommended!))
+	email = input('Enter your email address: ')
+	password = input('Enter your password: ') 
+	
+	# create a new firefoxProfile 
+	profile = webdriver.FirefoxProfile()
+	# overides the FirefoxProfile configuration settings to prevent pop-up windows
+	profile.set_preference('dom.push.enabled',False)
+	profile.set_preference('dom.webnotifications.enabled',False)
+
+	print('Opening Twitter webpage...')
+	browser = webdriver.Firefox(executable_path='geckodriver',firefox_profile=profile)
+	browser.get('http://twitter.com')
+
+	print('Entering login credentials...')
+	browser.find_element_by_xpath("//input[@name='session[username_or_email]']").send_keys(email)
+	browser.find_element_by_xpath("//input[@name='session[password]']").send_keys(password)
+	
+	print('Logging to Twitter...')
+	browser.find_element_by_xpath("//input[@type='submit']").click()
+	browser.implicitly_wait(20)
+
+	print('Inserting selecting quote to tweet field...')
+	tweetElem = browser.find_element_by_id('tweet-box-home-timeline').send_keys(quoteToShare)
+	time.sleep(3)
+
+	# Tweets the quote
+	tweetButton = browser.find_element_by_css_selector('button.tweet-action')
+	#browser.implicitly_wait(5)
+	tweetButton.click()
+	
+	print('-'*20)
+	print('Quote tweeted successfully!')
+	print('Tweet date:', datetime.datetime.now())
+	print('-'*20)
+	print('Your tweet:', quoteToShare, '|','Length:',len(quoteToShare))
+	print('-'*20)
+	
+	time.sleep(4)
+	print('Browser will close now...')
+	browser.quit()
+
+
+############################ WHETHER TO SHARE OR NOT ############################
+while True:
+	shareQuote = input("\n Type 'y' if you would like to share the quote, 'e' to exit: ").lower()
+	if shareQuote == 'e':
+		sys.exit()
+	if shareQuote == 'y':
+		# Performs the UserFavourite function
+		userFavourite(quote_dictionary)
+
+		while True:
+			print("Enter 'fb' to share on Facebook, or 'tw' to share on Twitter: ")
+			sharingPlatform = str(input('Platform: ').lower())
+
+			if sharingPlatform == 'fb':
+				# performs sharingOnFacebook function 
+				print('Sharing on Facebook...')
+				sharingOnFacebook(sharingPlatform,quoteToShare)
+				break
+			elif sharingPlatform == 'tw':
+				# performs sharingonTwitter function
+				print('Sharing on Twitter...')
+				sharingOnTwitter(sharingPlatform, quoteToShare)
+				break
+			else:
+				print("Sorry, didn't catched that. Try again. ")
+
+		break
+	else:
+		print("Didn't catched that. Try again.")
